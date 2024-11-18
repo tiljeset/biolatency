@@ -1,3 +1,5 @@
 biolatency.skel.h
 biolatency.bpf.o
 biolatency
+.cache/
+compile_commands.json

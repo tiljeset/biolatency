@@ -10,5 +10,5 @@ clang $CFLAGS -target bpf -D__TARGET_ARCH_x86 \
 
 bpftool gen skeleton biolatency.bpf.o name biolatency > biolatency.skel.h
 
-# both gcc and clang works here
-cc $CFLAGS -Werror -o biolatency biolatency.c
+# both gcc and clang works here; requires libbpf to link against
+cc $CFLAGS -Werror -o biolatency biolatency.c -lbpf
