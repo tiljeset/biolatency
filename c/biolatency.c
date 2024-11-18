@@ -6,6 +6,13 @@
 
 #include "biolatency.skel.h"
 
+// This should really go in a header file
+struct disk_latency_key_t {
+    uint32_t dev;
+    uint8_t op;
+    uint64_t bucket;
+};
+
 static int libbpf_print_callback(enum libbpf_print_level level, const char *format, va_list args) {
 	const char *level_str;
 	switch (level) {
@@ -18,13 +25,6 @@ static int libbpf_print_callback(enum libbpf_print_level level, const char *form
 	ret += fprintf(stderr, "[%s] ", level_str);
 	ret += vfprintf(stderr, format, args);
 	return ret;
-}
-
-// such global... much volatile... wow
-static volatile bool exiting = false;
-static void sig_handler(int sig)
-{
-	exiting = true;
 }
 
 bool probe_tp_btf(const char *name)
@@ -43,12 +43,13 @@ bool probe_tp_btf(const char *name)
 	return fd >= 0;
 }
 
+static void sig_handler(int sig) {}
+
 int main() {
 	int rc;
 	libbpf_set_print(libbpf_print_callback);
 
 	signal(SIGINT, sig_handler);
-	signal(SIGTERM, sig_handler);
 
 	// load and verify bpf _application_
 	printf("===== OPEN ======\n");
@@ -56,8 +57,8 @@ int main() {
 	assert(skel);
 
 	// set configuration data through skel->rodata->...
-	skel->rodata->my_dummy_value = 42;
-
+	// no data to set ....
+	
 	// Load and verify bpf _programs_
 	printf("===== LOAD ======\n");
 	rc = biolatency__load(skel);
@@ -73,24 +74,25 @@ int main() {
 	printf("Waiting for events, press Ctrl-C to stop...");
 	while (1) {
 		sleep(-1);
-		if (exiting) break;
+		break;
 	}
 	printf("\n");
 
 	// read the map
 	{
-		uint32_t key = 0;
-		uint32_t next_key;
+		struct disk_latency_key_t key = { 66304, 1, 4 };
+		struct disk_latency_key_t next_key;
 		uint64_t value;
-		int fd = bpf_map__fd(skel->maps.counts);
+		int fd = bpf_map__fd(skel->maps.bio_latency_seconds);
 		assert(fd > 0);
+
 
 		int err;
 		while (!bpf_map_get_next_key(fd, &key, &next_key)) {
 			key = next_key;
 			err = bpf_map_lookup_elem(fd, &key, &value);
 			assert (err >= 0);
-			printf("counts[%u]: %lu\n", key, value);
+			printf("counts[%u:%u] (%lu): %lu\n", key.dev,key.op, key.bucket, value);
 		}
 	}
 	
