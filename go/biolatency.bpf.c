@@ -27,6 +27,9 @@ struct disk_latency_key_t {
 
 extern int LINUX_KERNEL_VERSION __kconfig;
 
+// dummy value to test setting variables
+const volatile u32 my_value = 0;
+
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 10000);
@@ -109,6 +112,12 @@ int block_rq_issue(struct bpf_raw_tracepoint_args *ctx)
 SEC("raw_tp/block_rq_complete")
 int block_rq_complete(struct bpf_raw_tracepoint_args *ctx)
 {
+    // ensure this value does not get optimized out
+    if (my_value) {
+        bpf_printk("my value is set");
+    } else {
+        bpf_printk("my value is NOT set");
+    }
     u64 *tsp, flags, delta_us, ts = bpf_ktime_get_ns();
     struct gendisk *disk;
     struct request *rq = (struct request *) ctx->args[0];
