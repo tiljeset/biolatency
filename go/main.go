@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"reflect"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -25,41 +26,28 @@ func main() {
 	}
 
 	var objs biolatencyObjects
-	var opts ebpf.CollectionOptions
-	opts.Programs.LogLevel = ebpf.LogLevelStats | ebpf.LogLevelBranch | ebpf.LogLevelInstruction
-
-	err = spec.LoadAndAssign(&objs, &opts)
+	err = spec.LoadAndAssign(&objs, nil)
 	if err != nil {
 		panic(err)
 	}
 
 	// Attach tracepoints
 	// see https://github.com/cilium/ebpf/discussions/1372
-	// TODO: Automate this using reflection?
-	{
-		l, err := link.AttachRawTracepoint(link.RawTracepointOptions{
-			Name:    "block_rq_issue",
-			Program: objs.BlockRqIssue,
-		})
-		if err != nil {
-			panic(err)
+	val := reflect.ValueOf(objs.biolatencyPrograms)
+	typ := reflect.TypeOf(objs.biolatencyPrograms)
+	for i := range val.NumField() {
+		field := typ.Field(i)
+		value := val.Field(i)
+
+		tag := field.Tag.Get("ebpf")
+		if tag == "" {
+			panic("missing ebpf tag")
 		}
-		defer l.Close()
-	}
-	{
+
+		fmt.Printf("Attach %v to %v\n", tag, value)
 		l, err := link.AttachRawTracepoint(link.RawTracepointOptions{
-			Name:    "block_rq_insert",
-			Program: objs.BlockRqInsert,
-		})
-		if err != nil {
-			panic(err)
-		}
-		defer l.Close()
-	}
-	{
-		l, err := link.AttachRawTracepoint(link.RawTracepointOptions{
-			Name:    "block_rq_complete",
-			Program: objs.BlockRqComplete,
+			Name:    tag,
+			Program: value.Interface().(*ebpf.Program),
 		})
 		if err != nil {
 			panic(err)

@@ -113,9 +113,7 @@ SEC("raw_tp/block_rq_complete")
 int block_rq_complete(struct bpf_raw_tracepoint_args *ctx)
 {
     // ensure this value does not get optimized out
-    if (my_value) {
-        bpf_printk("my value is set");
-    } else {
+    if (!my_value) {
         bpf_printk("my value is NOT set");
     }
     u64 *tsp, flags, delta_us, ts = bpf_ktime_get_ns();
@@ -136,7 +134,6 @@ int block_rq_complete(struct bpf_raw_tracepoint_args *ctx)
     key.dev = disk ? MKDEV(BPF_CORE_READ(disk, major), BPF_CORE_READ(disk, first_minor)) : 0;
     key.op = flags & REQ_OP_MASK;
 
-    bpf_printk("block_rq_complete: (%u,%u) add %lu", key.dev, key.op, delta_us);
     increment_exp2_histogram(&bio_latency_seconds, key, delta_us, MAX_LATENCY_SLOT);
 
     bpf_map_delete_elem(&start, &rq);
