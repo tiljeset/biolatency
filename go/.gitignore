@@ -1,3 +1,2 @@
 *.o
-biolatency_bpf*
 biolatency

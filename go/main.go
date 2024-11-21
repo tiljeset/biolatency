@@ -30,6 +30,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer objs.Close()
 
 	// Attach tracepoints
 	// see https://github.com/cilium/ebpf/discussions/1372
@@ -77,4 +78,4 @@ out:
 	for entries.Next(&key, &value) {
 		fmt.Printf("%v: %v\n", key, value)
 	}
-}
+
